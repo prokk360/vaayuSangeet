@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gesture & Voice Music Player</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <video id="webcam" autoplay playsinline style="display: none;"></video>
+        <audio id="audio-player"></audio>
+
+        <div class="player-card">
+            <div id="voice-indicator" class="voice-indicator">
+                <div class="pulse-dot"></div>
+                Listening for song name...
+            </div>
+
+            <div class="album-art">
+                🎵
+            </div>
+            <div class="track-info">
+                <h1 id="track-title">Waiting for command...</h1>
+                <p id="player-state" class="state-text">Status: PAUSED</p>
+            </div>
+
+            <div class="gesture-guide">
+                <h3>Gesture Guide</h3>
+                <ul>
+                    <li><strong>✊ Fist:</strong> Pause</li>
+                    <li><strong>👍 Thumbs Up:</strong> Play</li>
+                    <li><strong>✌️ Index + Middle:</strong> Hold to Speak</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

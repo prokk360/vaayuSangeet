@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+websockets
+mediapipe ==0.10.13
+opencv-python
+ytmusicapi
+openai-whisper
+ffmpeg
+yt-dlp 
+SpeechRecognition 
+pydub
