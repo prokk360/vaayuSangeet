@@ -1,33 +1,29 @@
 // --- DOM Elements ---
 const videoElement = document.getElementById('webcam');
 const audioElement = document.getElementById('audio-player');
-const voiceIndicator = document.getElementById('voice-indicator');
 const trackTitle = document.getElementById('track-title');
 const playerState = document.getElementById('player-state');
-const albumArt = document.getElementById('album-art');
-const progressFill = document.getElementById('progress-fill');
+const progress = document.getElementById('progress');
+const playIcon = document.getElementById('play-icon');
+const albumCard = document.getElementById('album-card');
+const voiceIndicator = document.getElementById('voice-indicator');
+const gestureStatus = document.getElementById('gesture-status');
 
-// --- State & Connection Variables ---
 let isPlaying = false;
 let isListening = false;
 let lastGestureTime = 0;
 let mediaRecorder;
 let audioChunks = [];
 
-// --- 1. Connect to Python Backend via WebSocket ---
+// --- 1. WebSocket Backend Connection ---
 const ws = new WebSocket('ws://localhost:8000/ws/player');
-
-ws.onopen = () => {
-    console.log("Connected to Python Backend!");
-};
 
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    
     if (data.action === 'LOAD_TRACK') {
-        trackTitle.innerText = data.track_name; // Kept normal case for better typography
+        trackTitle.innerText = data.track_name.toUpperCase();
+        playerState.innerText = "NOW PLAYING";
         audioElement.src = data.url;
-        audioElement.play();
         updatePlayState(true);
     }
 };
@@ -40,37 +36,32 @@ const hands = new Hands({
 hands.setOptions({
     maxNumHands: 1,
     modelComplexity: 1,
-    minDetectionConfidence: 0.7,
-    minTrackingConfidence: 0.7
+    minDetectionConfidence: 0.75,
+    minTrackingConfidence: 0.75
 });
 
 hands.onResults(handleHandResults);
 
-// --- 3. Initialize the Webcam ---
 const camera = new Camera(videoElement, {
-    onFrame: async () => {
-        await hands.send({ image: videoElement });
-    },
-    width: 640,
-    height: 480
+    onFrame: async () => { await hands.send({ image: videoElement }); },
+    width: 640, height: 480
 });
+camera.start();
 
-camera.start()
-    .then(() => trackTitle.innerText = "Ready. Show a gesture!")
-    .catch((err) => console.error("Camera error:", err));
-
-// --- 4. Gesture Math ---
+// --- 3. Gesture Engine ---
 function handleHandResults(results) {
-    if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
+    if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+        gestureStatus.innerText = "SYSTEM READY";
+        return;
+    }
 
     const landmarks = results.multiHandLandmarks[0];
     const tipIds = [4, 8, 12, 16, 20];
     const fingers = [];
 
-    // Thumb (X-axis check)
+    // Thumb check
     fingers.push(landmarks[tipIds[0]].x > landmarks[tipIds[0] - 1].x ? 1 : 0);
-
-    // Other 4 Fingers (Y-axis check)
+    // 4 Finger check
     for (let i = 1; i < 5; i++) {
         fingers.push(landmarks[tipIds[i]].y < landmarks[tipIds[i] - 2].y ? 1 : 0);
     }
@@ -78,104 +69,93 @@ function handleHandResults(results) {
     executeCommand(fingers.join(''));
 }
 
-// --- 5. Voice Recording Engine ---
-async function startVoiceRecording() {
-    isListening = true;
-    voiceIndicator.classList.add('active');
-    playerState.innerText = "Status: LISTENING...";
-    playerState.style.color = '#fca5a5'; // Soft Red
-
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        audioChunks = [];
-
-        mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-        
-        mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-            const reader = new FileReader();
-            reader.readAsDataURL(audioBlob);
-            reader.onloadend = () => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        action: 'VOICE_COMMAND',
-                        audio_blob: reader.result
-                    }));
-                    playerState.innerText = "Status: FETCHING SONG...";
-                    playerState.style.color = '#fde047'; // Soft Yellow
-                }
-            };
-            stream.getTracks().forEach(track => track.stop());
-        };
-        
-        mediaRecorder.start();
-    } catch (err) {
-        console.error("Mic error:", err);
-    }
-}
-
-function stopVoiceRecording() {
-    if (!isListening) return; 
-    
-    isListening = false;
-    voiceIndicator.classList.remove('active');
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop();
-    }
-}
-
-function executeCommand(gestureCode) {
+function executeCommand(code) {
     const now = Date.now();
-
-    if (gestureCode === '01100') {
+    
+    // ✌️ Voice Search (01100)
+    if (code === '01100') {
         if (!isListening) startVoiceRecording();
-        return; 
+        gestureStatus.innerText = "COMMAND: LISTEN";
+        return;
     } else if (isListening) {
-        stopVoiceRecording(); 
+        stopVoiceRecording();
     }
 
     if (now - lastGestureTime < 2000) return;
 
-    if (gestureCode === '10000') {
-        audioElement.play().catch(e => console.error("Playback blocked:", e));
+    // 👍 Play (10000)
+    if (code === '10000') {
         updatePlayState(true);
-        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ action: 'GESTURE', gesture: 'PLAY' }));
+        gestureStatus.innerText = "COMMAND: PLAY";
         lastGestureTime = now;
     }
-    else if (gestureCode === '00000') {
-        audioElement.pause();
+    // ✊ Pause (00000)
+    else if (code === '00000') {
         updatePlayState(false);
-        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ action: 'GESTURE', gesture: 'PAUSE' }));
+        gestureStatus.innerText = "COMMAND: PAUSE";
         lastGestureTime = now;
     }
-    else if (gestureCode === '01111') {
+    // 🖐️ Next Track (01111)
+    else if (code === '01111') {
+        gestureStatus.innerText = "COMMAND: NEXT";
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ action: 'GESTURE', gesture: 'NEXT' }));
         lastGestureTime = now;
     }
-    else if (gestureCode === '11100') {
-        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ action: 'GESTURE', gesture: 'PREVIOUS' }));
-        lastGestureTime = now;
-    }
 }
 
-// Helper to update UI & Animations
+// --- 4. Audio & UI Logic ---
 function updatePlayState(play) {
     isPlaying = play;
     if (isPlaying) {
-        playerState.innerText = "Status: PLAYING";
-        playerState.style.color = '#4ade80'; // Soft Green
-        albumArt.classList.add('is-playing');
-        progressFill.classList.add('is-playing-progress');
+        audioElement.play().catch(() => {});
+        playIcon.className = "fa-solid fa-pause";
+        albumCard.style.transform = "scale(1.05)";
+        document.getElementById('app-bg').style.background = "radial-gradient(circle at 20% 30%, #1d4ed8 0%, #1e1b4b 50%, #020617 100%)";
     } else {
-        playerState.innerText = "Status: PAUSED";
-        playerState.style.color = '#94a3b8'; // Slate Gray
-        albumArt.classList.remove('is-playing');
-        progressFill.classList.remove('is-playing-progress');
+        audioElement.pause();
+        playIcon.className = "fa-solid fa-play";
+        albumCard.style.transform = "scale(1)";
+        document.getElementById('app-bg').style.background = "radial-gradient(circle at 20% 30%, #3b82f6 0%, #1e1b4b 50%, #020617 100%)";
     }
 }
 
-// Auto-stop UI animation when audio naturally ends
-audioElement.addEventListener('ended', () => {
-    updatePlayState(false);
+// --- 5. Voice Engine ---
+async function startVoiceRecording() {
+    isListening = true;
+    voiceIndicator.style.display = 'flex';
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = () => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ action: 'VOICE_COMMAND', audio_blob: reader.result }));
+                }
+            };
+            stream.getTracks().forEach(t => t.stop());
+        };
+        mediaRecorder.start();
+    } catch (e) { console.error(e); }
+}
+
+function stopVoiceRecording() {
+    isListening = false;
+    voiceIndicator.style.display = 'none';
+    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+}
+
+// Timeline Update
+audioElement.addEventListener('timeupdate', () => {
+    const pct = (audioElement.currentTime / audioElement.duration) * 100;
+    progress.style.width = `${pct}%`;
+    
+    // Formatting current time
+    let min = Math.floor(audioElement.currentTime / 60);
+    let sec = Math.floor(audioElement.currentTime % 60);
+    document.getElementById('current-time').innerText = `${min}:${sec < 10 ? '0'+sec : sec}`;
 });

@@ -3,66 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gesture & Voice Music Player</title>
+    <title>Maestro | Gesture HUD</title>
     <link rel="stylesheet" href="style.css">
-    
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
+    <div class="app-background" id="app-bg"></div>
+    
+    <video id="webcam" autoplay playsinline style="display: none;"></video>
 
-    <div class="app-background"></div>
-    <div class="app-container">
-        <video id="webcam" autoplay playsinline style="display: none;"></video>
-        <audio id="audio-player"></audio>
+    <div class="glass-container">
+        <header class="top-nav">
+            <div class="logo">
+                <i class="fa-solid fa-headphones-simple"></i>
+                <span>MAESTRO AI</span>
+            </div>
+            <div id="gesture-status" class="gesture-status">SYSTEM READY</div>
+            <div class="search-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+        </header>
 
-        <div class="player-card">
-            <div id="voice-indicator" class="voice-indicator">
-                <div class="waveform">
-                    <span></span><span></span><span></span><span></span>
+        <main class="main-content">
+            <section class="player-controls">
+                <div class="voice-box" id="voice-indicator">
+                    <div class="pulse-dot"></div>
+                    <span id="voice-text">LISTENING...</span>
                 </div>
-                Listening...
-            </div>
 
-            <div class="album-art-container">
-                <div id="album-art" class="album-art">
-                    <span class="material-symbols-rounded music-icon">music_note</span>
-                    <div class="vinyl-center"></div>
+                <div class="play-circle" id="play-btn">
+                    <i class="fa-solid fa-play" id="play-icon"></i>
                 </div>
-            </div>
 
-            <div class="track-info">
-                <h1 id="track-title">Waiting for command...</h1>
-                <p id="player-state" class="state-text">Status: PAUSED</p>
-            </div>
-
-            <div class="progress-container">
-                <div class="progress-bar">
-                    <div id="progress-fill" class="progress-fill"></div>
-                </div>
-            </div>
-
-            <div class="gesture-guide">
-                <h3><span class="material-symbols-rounded">front_hand</span> Gesture Controls</h3>
-                <div class="gesture-grid">
-                    <div class="gesture-item">
-                        <span class="emoji">✊</span>
-                        <span>Pause</span>
+                <div class="timeline">
+                    <span id="current-time">0:00</span>
+                    <div class="progress-bar" id="progress-container">
+                        <div class="progress" id="progress"></div>
                     </div>
-                    <div class="gesture-item">
-                        <span class="emoji">👍</span>
-                        <span>Play</span>
+                    
+                </div>
+
+                <div class="secondary-controls">
+                    <i class="fa-solid fa-shuffle"></i>
+                    <i class="fa-solid fa-volume-high"></i>
+                </div>
+            </section>
+
+            <section class="album-showcase">
+                <div class="album-card" id="album-card">
+                    <div class="album-art-wrapper">
+                        <div id="album-art-placeholder" class="album-art-placeholder">🎵</div>
+                        <img src="" id="album-img" style="display:none;">
                     </div>
-                    <div class="gesture-item">
-                        <span class="emoji">✌️</span>
-                        <span>Speak</span>
+                    <div class="song-info">
+                        <h2 id="track-title">WAITING...</h2>
+                        <p id="player-state">GIVE A COMMAND</p>
                     </div>
                 </div>
-            </div>
-        </div>
+                <div class="carousel-dots">
+                   
+                    
+                    
+                </div>
+            </section>
+
+            <section class="lyrics-section">
+                <div class="gesture-guide">
+                    <h3>GESTURES</h3>
+                    <ul>
+                        <li><span class="g-icon">👍</span> PLAY</li>
+                        <li><span class="g-icon">✊</span> PAUSE</li>
+                        <li><span class="g-icon">✌️</span> SEARCH</li>
+                    </ul>
+                </div>
+            </section>
+        </main>
     </div>
+
+    <audio id="audio-player"></audio>
 
     <script src="script.js"></script>
 </body>
