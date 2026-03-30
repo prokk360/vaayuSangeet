@@ -4,6 +4,8 @@ const audioElement = document.getElementById('audio-player');
 const voiceIndicator = document.getElementById('voice-indicator');
 const trackTitle = document.getElementById('track-title');
 const playerState = document.getElementById('player-state');
+const albumArt = document.getElementById('album-art');
+const progressFill = document.getElementById('progress-fill');
 
 // --- State & Connection Variables ---
 let isPlaying = false;
@@ -13,7 +15,6 @@ let mediaRecorder;
 let audioChunks = [];
 
 // --- 1. Connect to Python Backend via WebSocket ---
-// Make sure your Python FastAPI server is running on port 8000!
 const ws = new WebSocket('ws://localhost:8000/ws/player');
 
 ws.onopen = () => {
@@ -23,9 +24,8 @@ ws.onopen = () => {
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     
-    // When the Python backend finds the song and sends the URL back
     if (data.action === 'LOAD_TRACK') {
-        trackTitle.innerText = data.track_name.toUpperCase();
+        trackTitle.innerText = data.track_name; // Kept normal case for better typography
         audioElement.src = data.url;
         audioElement.play();
         updatePlayState(true);
@@ -81,9 +81,9 @@ function handleHandResults(results) {
 // --- 5. Voice Recording Engine ---
 async function startVoiceRecording() {
     isListening = true;
-    voiceIndicator.style.display = 'flex';
+    voiceIndicator.classList.add('active');
     playerState.innerText = "Status: LISTENING...";
-    playerState.style.color = '#ef4444'; // Red
+    playerState.style.color = '#fca5a5'; // Soft Red
 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -93,9 +93,7 @@ async function startVoiceRecording() {
         mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
         
         mediaRecorder.onstop = () => {
-            // Convert the audio to a Base64 string so we can send it over WebSockets
-            // Dynamically use whatever format the browser actually recorded in
-const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+            const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
             const reader = new FileReader();
             reader.readAsDataURL(audioBlob);
             reader.onloadend = () => {
@@ -105,10 +103,9 @@ const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
                         audio_blob: reader.result
                     }));
                     playerState.innerText = "Status: FETCHING SONG...";
-                    playerState.style.color = '#eab308'; // Yellow
+                    playerState.style.color = '#fde047'; // Soft Yellow
                 }
             };
-            // Stop the microphone tracks to clear the red dot in the browser tab
             stream.getTracks().forEach(track => track.stop());
         };
         
@@ -118,13 +115,11 @@ const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
     }
 }
 
-// Replace your executeCommand and stopVoiceRecording functions with this:
-
 function stopVoiceRecording() {
-    if (!isListening) return; // Prevent duplicate execution
+    if (!isListening) return; 
     
     isListening = false;
-    voiceIndicator.style.display = 'none';
+    voiceIndicator.classList.remove('active');
     if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
     }
@@ -137,7 +132,7 @@ function executeCommand(gestureCode) {
         if (!isListening) startVoiceRecording();
         return; 
     } else if (isListening) {
-        stopVoiceRecording(); // Protected by the early return above
+        stopVoiceRecording(); 
     }
 
     if (now - lastGestureTime < 2000) return;
@@ -164,14 +159,23 @@ function executeCommand(gestureCode) {
     }
 }
 
-// Helper to update UI
+// Helper to update UI & Animations
 function updatePlayState(play) {
     isPlaying = play;
     if (isPlaying) {
-        playerState.innerText = "Status: PLAYING ▶";
-        playerState.style.color = '#22c55e'; // Green
+        playerState.innerText = "Status: PLAYING";
+        playerState.style.color = '#4ade80'; // Soft Green
+        albumArt.classList.add('is-playing');
+        progressFill.classList.add('is-playing-progress');
     } else {
-        playerState.innerText = "Status: PAUSED ⏸";
-        playerState.style.color = '#94a3b8'; // Gray
+        playerState.innerText = "Status: PAUSED";
+        playerState.style.color = '#94a3b8'; // Slate Gray
+        albumArt.classList.remove('is-playing');
+        progressFill.classList.remove('is-playing-progress');
     }
 }
+
+// Auto-stop UI animation when audio naturally ends
+audioElement.addEventListener('ended', () => {
+    updatePlayState(false);
+});
